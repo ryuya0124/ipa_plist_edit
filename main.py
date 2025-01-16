@@ -5,6 +5,12 @@ import tkinter as tk
 from tkinter import filedialog, messagebox
 from tkinter import ttk
 
+import ctypes
+try:
+    ctypes.windll.shcore.SetProcessDpiAwareness(True)
+except:
+    pass
+
 # タブ1: Game Modeサポート追加機能
 def add_game_mode_support(ipa_path, output_path):
     # IPAファイルを解凍

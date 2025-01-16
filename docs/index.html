@@ -95,6 +95,8 @@
         // 必要なライブラリを順番にロード
         await loadScript("https://cdn.jsdelivr.net/npm/jszip@3.7.1/dist/jszip.min.js");
         await loadScript("https://cdn.jsdelivr.net/npm/plist@3.0.1/dist/plist.js");
+        await loadScript("https://unpkg.com/bplist-parser@0.3.2/bplistParser.js");
+
 
         // ロード完了時の処理
         loading.classList.remove('active');
@@ -211,38 +213,50 @@
     }
 
     function convertBplistToPlist() {
-      const output = document.getElementById('conversionOutput');
-      const fileInput = document.getElementById('bplistFile');
-      const file = fileInput.files[0];
+            const fileInput = document.getElementById("bplistFile");
+            const output = document.getElementById("conversionOutput");
 
-      if (!file) {
-        output.textContent = "bplistファイルを選択してください！";
-        return;
-      }
+            if (!fileInput.files.length) {
+                output.textContent = "ファイルを選択してください。";
+                return;
+            }
 
-      output.textContent = "bplistファイルを読み込み中...";
-      const reader = new FileReader();
-      reader.onload = function(event) {
-        try {
-          const bplistData = event.target.result;
-          const plistData = plist.parse(bplistData, { format: 'binary' });
+            const file = fileInput.files[0];
+            const reader = new FileReader();
 
-          const plistXml = plist.build(plistData, { format: 'xml' });
-          const blob = new Blob([plistXml], { type: 'application/xml' });
-          const link = document.createElement('a');
-          link.href = URL.createObjectURL(blob);
-          link.download = 'converted.plist';
-          link.click();
+            reader.onload = function () {
+                try {
+                    const arrayBuffer = reader.result;
+                    const uint8Array = new Uint8Array(arrayBuffer);
 
-          output.textContent = "変換完了！converted.plistをダウンロードしました。";
-        } catch (error) {
-          console.error(error);
-          output.textContent = "エラーが発生しました: " + error.message;
+                    // bplist-parserでバイナリをパース
+                    const parsedObj = bplist.parseBuffer(uint8Array);
+
+                    // オブジェクトをXML形式に変換
+                    const xmlPlist = plist.build(parsedObj[0]); // bplist-parserの出力は配列形式
+
+                    // ダウンロード用リンクを作成
+                    const blob = new Blob([xmlPlist], { type: "text/xml" });
+                    const downloadLink = document.createElement("a");
+                    downloadLink.href = URL.createObjectURL(blob);
+                    downloadLink.download = "converted.plist";
+                    downloadLink.textContent = "変換したファイルをダウンロード";
+
+                    // 出力
+                    output.innerHTML = "";
+                    output.appendChild(downloadLink);
+                } catch (error) {
+                    console.error(error);
+                    output.textContent = "変換に失敗しました。エラー: " + error.message;
+                }
+            };
+
+            reader.onerror = function () {
+                output.textContent = "ファイルの読み込みに失敗しました。";
+            };
+
+            reader.readAsArrayBuffer(file);
         }
-      };
-
-      reader.readAsArrayBuffer(file);
-    }
   </script>
 </body>
 </html>
