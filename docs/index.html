@@ -10,10 +10,18 @@
       margin: 0;
       padding: 20px;
     }
-    .tab {
+    .loading {
+      display: none;
+      text-align: center;
+      margin-top: 50px;
+    }
+    .content {
       display: none;
     }
-    .tab.active {
+    .loading.active {
+      display: block;
+    }
+    .content.active {
       display: block;
     }
     .tabs {
@@ -28,52 +36,79 @@
     .tabs button.active {
       background-color: #ddd;
     }
-    .file-input {
-      margin: 10px 0;
-    }
-    .file-input input {
-      margin-right: 10px;
-    }
-    .progress {
-      margin-top: 10px;
-      font-size: 14px;
-      color: #555;
-    }
   </style>
 </head>
 <body>
-  <h1>Game Modeサポート追加 & plist/bplist 変換ツール</h1>
-
-  <div class="tabs">
-    <button class="tab-link active" onclick="switchTab(0)">タブ1: Game Modeサポート追加</button>
-    <button class="tab-link" onclick="switchTab(1)">タブ2: plist/bplist 変換</button>
+  <!-- ロード中表示 -->
+  <div id="loading" class="loading active">
+    <h2>ロード中...</h2>
   </div>
 
-  <!-- タブ1: Game Modeサポート追加 -->
-  <div id="tab1" class="tab active">
-    <div class="file-input">
-      <input type="file" id="ipaFile" accept=".ipa">
-      <button onclick="processIpaFile()">IPAファイル処理</button>
+  <!-- コンテンツ表示 -->
+  <div id="content" class="content">
+    <h1>Game Modeサポート追加 & plist/bplist 変換ツール</h1>
+    <div class="tabs">
+      <button class="tab-link active" onclick="switchTab(0)">タブ1: Game Modeサポート追加</button>
+      <button class="tab-link" onclick="switchTab(1)">タブ2: plist/bplist 変換</button>
     </div>
-    <p id="ipaOutput" class="progress"></p>
+
+    <!-- タブ1: Game Modeサポート追加 -->
+    <div id="tab1" class="tab active">
+      <div class="file-input">
+        <input type="file" id="ipaFile" accept=".ipa">
+        <button onclick="processIpaFile()">IPAファイル処理</button>
+      </div>
+      <p id="ipaOutput" class="progress"></p>
+    </div>
+
+    <!-- タブ2: plist/bplist 変換 -->
+    <div id="tab2" class="tab">
+      <div class="file-input">
+        <input type="file" id="plistFile" accept=".plist">
+        <button onclick="convertPlistToBplist()">plist → bplist</button>
+      </div>
+      <div class="file-input">
+        <input type="file" id="bplistFile" accept=".bplist">
+        <button onclick="convertBplistToPlist()">bplist → plist</button>
+      </div>
+      <p id="conversionOutput" class="progress"></p>
+    </div>
   </div>
 
-  <!-- タブ2: plist/bplist 変換 -->
-  <div id="tab2" class="tab">
-    <div class="file-input">
-      <input type="file" id="plistFile" accept=".plist">
-      <button onclick="convertPlistToBplist()">plist → bplist</button>
-    </div>
-    <div class="file-input">
-      <input type="file" id="bplistFile" accept=".bplist">
-      <button onclick="convertBplistToPlist()">bplist → plist</button>
-    </div>
-    <p id="conversionOutput" class="progress"></p>
-  </div>
+  <!-- 必要なライブラリ -->
+  <script>
+    // ライブラリを動的にロードする
+    function loadScript(src) {
+      return new Promise((resolve, reject) => {
+        const script = document.createElement('script');
+        script.src = src;
+        script.onload = resolve;
+        script.onerror = reject;
+        document.head.appendChild(script);
+      });
+    }
+
+    async function initializeApp() {
+      const loading = document.getElementById('loading');
+      const content = document.getElementById('content');
+      try {
+        // 必要なライブラリを順番にロード
+        await loadScript("https://cdn.jsdelivr.net/npm/jszip@3.7.1/dist/jszip.min.js");
+        await loadScript("https://cdn.jsdelivr.net/npm/plist@3.0.1/dist/plist.js");
+
+        // ロード完了時の処理
+        loading.classList.remove('active');
+        content.classList.add('active');
+      } catch (error) {
+        loading.innerHTML = "<h2>エラーが発生しました。再度お試しください。</h2>";
+        console.error("ライブラリのロードに失敗しました: ", error);
+      }
+    }
+
+    document.addEventListener('DOMContentLoaded', initializeApp);
+  </script>
 
   <!-- スクリプト -->
-  <script src="https://cdn.jsdelivr.net/npm/jszip@3.7.1/dist/jszip.min.js"></script>
-  <script src="https://cdn.jsdelivr.net/npm/plist@3.0.1/plist.min.js"></script>
   <script>
     let activeTab = 0;
 
