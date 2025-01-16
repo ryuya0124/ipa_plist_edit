@@ -1,0 +1,177 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Game Modeサポート追加 & plist/bplist 変換ツール</title>
+  <style>
+    body {
+      font-family: Arial, sans-serif;
+      margin: 0;
+      padding: 20px;
+    }
+    .tab {
+      display: none;
+    }
+    .tab.active {
+      display: block;
+    }
+    .tabs {
+      display: flex;
+      margin-bottom: 20px;
+    }
+    .tabs button {
+      padding: 10px;
+      margin-right: 10px;
+      cursor: pointer;
+    }
+    .tabs button.active {
+      background-color: #ddd;
+    }
+    .file-input {
+      margin: 10px 0;
+    }
+    .file-input input {
+      margin-right: 10px;
+    }
+  </style>
+</head>
+<body>
+  <h1>Game Modeサポート追加 & plist/bplist 変換ツール</h1>
+
+  <div class="tabs">
+    <button class="tab-link active" onclick="switchTab(0)">タブ1: Game Modeサポート追加</button>
+    <button class="tab-link" onclick="switchTab(1)">タブ2: plist/bplist 変換</button>
+  </div>
+
+  <!-- タブ1: Game Modeサポート追加 -->
+  <div id="tab1" class="tab active">
+    <div class="file-input">
+      <input type="file" id="ipaFile" accept=".ipa">
+      <button onclick="processIpaFile()">IPAファイル処理</button>
+    </div>
+    <p id="ipaOutput"></p>
+  </div>
+
+  <!-- タブ2: plist/bplist 変換 -->
+  <div id="tab2" class="tab">
+    <div class="file-input">
+      <input type="file" id="plistFile" accept=".plist">
+      <button onclick="convertPlistToBplist()">plist → bplist</button>
+    </div>
+    <div class="file-input">
+      <input type="file" id="bplistFile" accept=".bplist">
+      <button onclick="convertBplistToPlist()">bplist → plist</button>
+    </div>
+    <p id="conversionOutput"></p>
+  </div>
+
+  <!-- スクリプト -->
+  <script src="https://cdn.jsdelivr.net/npm/jszip@3.7.1/dist/jszip.min.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/plist@3.0.1/plist.min.js"></script>
+  <script>
+    let activeTab = 0;
+
+    function switchTab(tabIndex) {
+      document.querySelectorAll('.tab').forEach((tab, index) => {
+        tab.classList.remove('active');
+        document.querySelectorAll('.tab-link')[index].classList.remove('active');
+      });
+      document.getElementById('tab' + (tabIndex + 1)).classList.add('active');
+      document.querySelectorAll('.tab-link')[tabIndex].classList.add('active');
+      activeTab = tabIndex;
+    }
+
+    function processIpaFile() {
+      const fileInput = document.getElementById('ipaFile');
+      const file = fileInput.files[0];
+      if (!file) {
+        alert("IPAファイルを選択してください！");
+        return;
+      }
+
+      const reader = new FileReader();
+      reader.onload = async function(event) {
+        const zip = await JSZip.loadAsync(event.target.result);
+        const appFile = Object.keys(zip.files).find(f => f.endsWith('.app/Info.plist'));
+        if (appFile) {
+          let plistContent = await zip.files[appFile].async("string");
+          let plist = plist.parse(plistContent);
+          
+          // GCSupportsGameModeキーをチェックして追加
+          if (!plist.GCSupportsGameMode || plist.GCSupportsGameMode === false) {
+            plist.GCSupportsGameMode = true;
+          }
+
+          // 編集したplistを再度bplistとして書き込み
+          const updatedPlist = plist.build(plist);
+          const updatedPlistFile = zip.file(appFile, updatedPlist);
+
+          const newZip = new JSZip();
+          newZip.file(appFile, updatedPlist);
+          Object.keys(zip.files).forEach(fileName => {
+            if (fileName !== appFile) {
+              newZip.file(fileName, zip.files[fileName]);
+            }
+          });
+
+          const modifiedIpaBlob = await newZip.generateAsync({ type: "blob" });
+          const link = document.createElement('a');
+          link.href = URL.createObjectURL(modifiedIpaBlob);
+          link.download = 'modified.ipa';
+          link.click();
+        } else {
+          alert("IPAファイルにInfo.plistが見つかりませんでした。");
+        }
+      };
+      reader.readAsArrayBuffer(file);
+    }
+
+    function convertPlistToBplist() {
+      const fileInput = document.getElementById('plistFile');
+      const file = fileInput.files[0];
+      if (!file) {
+        alert("plistファイルを選択してください！");
+        return;
+      }
+
+      const reader = new FileReader();
+      reader.onload = function(event) {
+        const plistContent = event.target.result;
+        const plistData = plist.parse(plistContent);
+        const bplistData = plist.build(plistData, { format: 'binary' });
+
+        const blob = new Blob([bplistData], { type: 'application/octet-stream' });
+        const link = document.createElement('a');
+        link.href = URL.createObjectURL(blob);
+        link.download = 'converted.bplist';
+        link.click();
+      };
+      reader.readAsText(file);
+    }
+
+    function convertBplistToPlist() {
+      const fileInput = document.getElementById('bplistFile');
+      const file = fileInput.files[0];
+      if (!file) {
+        alert("bplistファイルを選択してください！");
+        return;
+      }
+
+      const reader = new FileReader();
+      reader.onload = function(event) {
+        const bplistData = event.target.result;
+        const plistData = plist.parse(bplistData, { format: 'binary' });
+
+        const plistXml = plist.build(plistData, { format: 'xml' });
+        const blob = new Blob([plistXml], { type: 'application/xml' });
+        const link = document.createElement('a');
+        link.href = URL.createObjectURL(blob);
+        link.download = 'converted.plist';
+        link.click();
+      };
+      reader.readAsArrayBuffer(file);
+    }
+  </script>
+</body>
+</html>
